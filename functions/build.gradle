@@ -1,0 +1,89 @@
+plugins {
+    id 'java'
+    id 'maven-publish'
+    id 'org.jetbrains.kotlin.jvm' version '1.4.0'
+    id 'com.github.johnrengelman.shadow' version '6.0.0'
+    id 'org.jetbrains.kotlin.kapt' version '1.4.0'
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+    maven {
+        url = uri('https://repo.maven.apache.org/maven2')
+    }
+}
+
+sourceSets {
+    main {
+        java.srcDirs += 'src/main/java'
+    }
+
+    test {
+        java.srcDirs += 'src/test/java'
+    }
+}
+
+configurations {
+    invoker
+}
+
+dependencies {
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.4.0'
+
+    implementation 'com.google.cloud.functions:functions-framework-api:1.0.2'
+    kapt("com.squareup.moshi:moshi-kotlin-codegen:1.9.3")
+
+    //To run function locally using Functions Framework's local invoker
+    invoker 'com.google.cloud.functions.invoker:java-function-invoker:1.0.0-alpha-2-rc5'
+
+    //Networking
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-moshi:2.9.0'
+
+    //Json
+    implementation("com.squareup.moshi:moshi:1.9.3")
+
+    //Firebase
+    implementation 'com.google.firebase:firebase-admin:7.0.0'
+
+    //For Sending Emails
+    implementation 'com.sendgrid:sendgrid-java:4.6.4'
+
+    testImplementation 'org.mockito:mockito-core:3.5.6'
+    testImplementation 'junit:junit:4.13'
+    testImplementation 'com.google.truth:truth:1.0.1'
+    testImplementation 'com.google.guava:guava-testlib:29.0-jre'
+    testImplementation 'io.mockk:mockk:1.10.0'
+    testImplementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.4.0'
+}
+
+group = 'com.example.cloud.functions'
+version = '0.1'
+//sourceCompatibility = '1.8'
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+
+task moveJarToRoot(type: Copy) {
+    from file("$buildDir/libs/")
+    include 'apartment*'
+    into file("$rootDir/../")
+}
+
+tasks.shadowJar.finalizedBy(tasks.moveJarToRoot)
+
+tasks.register("runFunction", JavaExec) {
+    main = 'com.google.cloud.functions.invoker.runner.Invoker'
+    classpath(configurations.invoker)
+    inputs.files(configurations.runtimeClasspath, sourceSets.main.output)
+    args(
+            '--target', project.findProperty('runFunction.target') ?: '',
+            '--port', project.findProperty('runFunction.port') ?: 8080
+    )
+    doFirst {
+        args('--classpath', files(configurations.runtimeClasspath, sourceSets.main.output).asPath)
+    }
+}
